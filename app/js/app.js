@@ -45,7 +45,7 @@
   // ---------- question renderer ----------
   function renderQuestion(q, opts = {}) {
     const card = h('div', { class: 'qcard' + (opts.inline ? ' inline' : '') });
-    const head = h('div', { class: 'qhead' }, h('span', { class: 'qtype t-' + q.type }, { predict: 'Predict', mcq: 'Choose', write: 'Write code', explain: 'Explain' }[q.type]), srcBadge(q),
+    const head = h('div', { class: 'qhead' }, h('span', { class: 'qtype t-' + q.type }, q.tag === 'rewrite' ? 'Rewrite / fix' : { predict: 'Predict', mcq: 'Choose', write: 'Write code', explain: 'Explain' }[q.type]), srcBadge(q),
       P.q[q.id] ? h('span', { class: 'qprev ' + (P.q[q.id].ok ? 'ok' : 'bad') }, P.q[q.id].ok ? '✓ done before' : '✗ missed before') : null);
     card.append(head, h('div', { class: 'qtext', html: mdInline(q.q) }));
     const pre = preludeOf(q);
@@ -60,13 +60,15 @@
 
     if (q.type === 'mcq') {
       const opts_ = h('div', { class: 'opts' });
-      q.options.forEach((o, i) => opts_.append(h('button', { class: 'opt', onclick: (e) => {
+      // options are shown in a random order each time, so position is never a clue
+      const order = q.options.length > 2 ? shuffle(q.options.map((_, i) => i)) : q.options.map((_, i) => i);
+      order.forEach((i, pos) => { const o = q.options[i]; opts_.append(h('button', { class: 'opt', onclick: (e) => {
         if (opts_.dataset.done) return; opts_.dataset.done = '1';
         const ok = i === q.answer;
-        [...opts_.children].forEach((b, j) => { if (j === q.answer) b.classList.add('right'); else if (j === i) b.classList.add('wrong'); b.disabled = true; });
+        [...opts_.children].forEach((b, j) => { if (order[j] === q.answer) b.classList.add('right'); else if (order[j] === i) b.classList.add('wrong'); b.disabled = true; });
         fb.innerHTML = ''; fb.append(h('div', { class: ok ? 'good-t' : 'bad-t' }, ok ? '✅ Correct' : '❌ Not quite'), explainEl());
         done(ok);
-      } }, h('span', { class: 'optl' }, String.fromCharCode(65 + i)), h('span', { html: mdInline(o) }))));
+      } }, h('span', { class: 'optl' }, String.fromCharCode(65 + pos)), h('span', { html: mdInline(o) }))); });
       card.append(opts_, fb);
     }
 
@@ -120,6 +122,9 @@
       }
       const runTests = h('button', { class: 'btn primary', onclick: () => {
         results.innerHTML = ''; let all = true;
+        const mine = ta.value.replace(/;.*$/gm, '');
+        (q.require || []).forEach(([re, msg]) => { if (!new RegExp(re).test(mine)) { all = false; results.append(h('div', { class: 'test fail' }, h('div', { class: 'small' }, '✗ Style: ' + msg))); } });
+        (q.forbid || []).forEach(([re, msg]) => { if (new RegExp(re).test(mine)) { all = false; results.append(h('div', { class: 'test fail' }, h('div', { class: 'small' }, '✗ Style: ' + msg))); } });
         const body = q.template ? q.template.replace('<<ANSWER>>', ta.value) : pre + '\n' + ta.value;
         q.tests.forEach(t => {
           const r = R.run(body + '\n' + t.run);
@@ -135,7 +140,9 @@
         fb.innerHTML = ''; fb.append(h('div', { class: 'small b' }, 'Model answer:'), h('pre', { class: 'code', html: highlight(q.answer) }), explainEl());
         if (!P.q[q.id]) record(q.id, false);
       } }, 'Show answer');
-      card.append(ta, h('div', { class: 'qactions' }, runTests, showAns, h('button', { class: 'btn ghost small', onclick: () => { ta.value = q.starter || ''; store.set(key, ta.value); } }, 'Reset')), results, fb);
+      const hintEl = h('div', { class: 'explain', hidden: true, html: '🔎 ' + mdInline(q.hint || '') });
+      const hintBtn = q.hint ? h('button', { class: 'btn', onclick: () => { hintEl.hidden = !hintEl.hidden; } }, 'Hint') : null;
+      card.append(ta, h('div', { class: 'qactions' }, runTests, hintBtn, showAns, h('button', { class: 'btn ghost small', onclick: () => { ta.value = q.starter || ''; store.set(key, ta.value); } }, 'Reset')), hintEl, results, fb);
     }
 
     if (q.type === 'explain') {
@@ -170,10 +177,10 @@
           h('div', null, h('b', null, `${pct(all.ok, all.tried)}%`), h('span', null, 'accuracy')))),
       !standalone ? h('div', { class: 'install' }, '📲 To use this offline while camping: open this page in ', h('b', null, 'Safari'), ', tap ', h('b', null, 'Share'), ' → ', h('b', null, 'Add to Home Screen'), ', then open it once from the home screen while you still have signal.') : null,
       h('div', { class: 'quick' },
-        h('a', { class: 'qbtn', href: '#/quiz?mode=exam' }, '🎯', h('span', null, 'Exam mix')),
+        h('a', { class: 'qbtn', href: '#/quiz?mode=smart' }, '🧠', h('span', null, 'Smart review')),
         h('a', { class: 'qbtn', href: '#/tips' }, '🧭', h('span', null, 'Exam tips')),
         h('a', { class: 'qbtn', href: '#/map' }, '🕸', h('span', null, 'Connections')),
-        h('a', { class: 'qbtn', href: '#/cards' }, '🃏', h('span', null, 'Flashcards'))),
+        h('a', { class: 'qbtn', href: '#/quiz?mode=rewrite' }, '🛠', h('span', null, 'Rewrite & fix'))),
       h('h2', { class: 'sec-t' }, 'Topics (in lecture order)'),
       TOPICS.map((t, i) => {
         const s = statsFor(topicQs(t.id)); const rd = t.sections.filter(x => P.read[t.id + '/' + x.id]).length;
@@ -239,6 +246,7 @@
     const wrong = QUESTIONS.filter(q => P.q[q.id] && !P.q[q.id].ok);
     const fresh = QUESTIONS.filter(q => !P.q[q.id]);
     const examQs = QUESTIONS.filter(q => /final|midterm/i.test(q.src || ''));
+    const rewriteQs = QUESTIONS.filter(q => q.tag === 'rewrite');
     const chips = h('div', { class: 'chips' });
     const draw = () => {
       chips.innerHTML = '';
@@ -250,6 +258,8 @@
     const mode = (m, icon, title, sub) => h('a', { class: 'mode', href: '#', onclick: (e) => { e.preventDefault(); location.hash = `#/quiz?mode=${m}&topic=${tq()}`; } }, h('span', { class: 'mode-i' }, icon), h('span', null, h('b', null, title), h('div', { class: 'small muted' }, sub)));
     return h('div', { class: 'view' }, header('Practice'),
       h('div', { class: 'small muted' }, 'Filter by topic (optional):'), chips,
+      mode('smart', '🧠', 'Smart review (12)', 'Your mistakes first, then new questions, then your oldest correct ones'),
+      mode('rewrite', '🛠', `Rewrite & improve (${rewriteQs.length})`, 'Fix the bug, improve the style, rewrite with map/let/cond, make it tail-recursive'),
       mode('order', '📚', 'Work through questions', 'In lesson order, skipping ones you have already got right'),
       mode('exam', '🎯', 'Exam mix (15 random)', 'Mixed topics, like the real thing'),
       mode('pastexam', '📝', `Past-exam questions (${examQs.length})`, 'Racket questions adapted from the old finals'),
@@ -275,10 +285,18 @@
       if (m === 'pastexam') qs = qs.filter(q => /final|midterm/i.test(q.src || ''));
       if (m === 'wrong') qs = qs.filter(q => P.q[q.id] && !P.q[q.id].ok);
       if (m === 'new') qs = qs.filter(q => !P.q[q.id]);
+      if (m === 'rewrite') { const r = qs.filter(q => q.tag === 'rewrite'); const todo = r.filter(q => !(P.q[q.id] && P.q[q.id].ok)); qs = todo.length ? todo : r; }
+      if (m === 'smart') { // mistakes (oldest first), then unseen, then correct answers not seen for the longest time
+        const t = (q) => (P.q[q.id] || {}).t || 0;
+        const wrong = qs.filter(q => P.q[q.id] && !P.q[q.id].ok).sort((a, b) => t(a) - t(b));
+        const unseen = shuffle(qs.filter(q => !P.q[q.id]));
+        const old = qs.filter(q => P.q[q.id] && P.q[q.id].ok).sort((a, b) => t(a) - t(b));
+        qs = shuffle([...wrong.slice(0, 6), ...unseen.slice(0, 12), ...old].slice(0, 12));
+      }
       session = { key, qs, i: 0, results: {} };
     }
     const S = session;
-    const wrap = h('div', { class: 'view' }, header({ order: 'Practice', exam: 'Exam mix', pastexam: 'Past-exam questions', wrong: 'Review mistakes', new: 'New questions', all: 'All questions' }[m] || 'Practice', '#/practice'));
+    const wrap = h('div', { class: 'view' }, header({ smart: 'Smart review', rewrite: 'Rewrite & improve', order: 'Practice', exam: 'Exam mix', pastexam: 'Past-exam questions', wrong: 'Review mistakes', new: 'New questions', all: 'All questions' }[m] || 'Practice', '#/practice'));
     if (!S.qs.length) { wrap.append(h('div', { class: 'empty' }, m === 'wrong' ? '🎉 No mistakes to review!' : 'No questions here.'), h('a', { class: 'btn', href: '#/practice' }, 'Back')); return wrap; }
     const body = h('div');
     const top = h('div', { class: 'qnav-top' });

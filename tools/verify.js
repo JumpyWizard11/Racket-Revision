@@ -51,6 +51,9 @@ for (const q of window.QUESTIONS) {
   if (!progs) continue;
   checked++;
   const problems = [];
+  // model answers must satisfy their own style rules
+  for (const [re, msg] of q.require || []) if (!new RegExp(re).test(q.answer)) problems.push('model answer fails require: ' + msg);
+  for (const [re, msg] of q.forbid || []) if (new RegExp(re).test(q.answer)) problems.push('model answer hits forbid: ' + msg);
   progs.forEach((prog, gi) => {
   const file = path.join(tmp, q.id.replace(/\W/g, '_') + '_' + gi + '.rkt');
   let rout, rerr, timedOut;

@@ -50,7 +50,8 @@ A static, framework-free website: plain HTML/CSS/JS, no build step, no internet 
 
 - **Learn**: 7 topics / 49 sections that follow the slides. Each section has explanations, **runnable/editable code**, visualisers, 🔗 connection callouts, ⚠️ exam traps and inline "check yourself" questions.
 - **Visualisers** (`js/viz.js`): environment-frame stepper (let/let*/letrec, set! & closures, counters, aliasing, promises, MUPL lexical scope), box-and-pointer diagrams, AST viewer, "parens always mean something" gallery, thunk/eager/promise counter, memoization counter, **stream explorer** (pulls real values through the interpreter, including broken streams), **macro expander** (pattern bindings, step-by-step expansion, hygienic renaming shown as `y₁`, plus what a naive C-style expansion would print), C preprocessor expander, **interpreter AST evaluator** (checked vs unchecked), free-variable tapping game, sound/complete simulator, static-vs-dynamic claims sorter.
-- **Practice** (`js/questions1-3.js`): 170 questions (predict-the-output, multiple choice, write-code with automatic tests, explain/self-marked). There are 54 tagged with the past exam they came from. Modes: in order, exam mix, past-exam only, review mistakes, new only.
+- **Practice** (`js/questions1-4.js`): 194 questions (predict-the-output, multiple choice, write-code with automatic tests, explain/self-marked). 24 are **rewrite / improve / fix** questions (`tag: 'rewrite'`): improve the style, rewrite with map/filter/let/cond, make it tail-recursive, remove mutation, fix a broken stream/promise/macro/interpreter case. Modes: smart review (mistakes first, then new, then oldest correct), rewrite & improve, in order, exam mix, past-exam only, review mistakes, new only.
+- **Multiple choice is deliberately balanced**: `questions4.js` holds option sets (`OPTS`, correct answer listed first) where all options have similar length and detail, and the app shuffles option order on every render. Keep it that way: never make the correct option the longest or most detailed one, and never refer to option letters in explanations.
 - **Connect** (`js/map.js`): a concept map of 35 concepts and 46 labelled connections (tap one to see how it relates to the others), plus 9 side-by-side comparison tables.
 - **Code**: a playground running `js/racket.js`, a mini Racket interpreter (module semantics, the same error messages as Racket, syntax-rules with hygiene, struct, mcons, …). It has a bracket keyboard bar and fixes iPhone "smart quotes" automatically.
 - **Cards**: 42 flashcards. **Exam tips**: technique for tracing, "what does it do", bug-fixing, sound/complete.
@@ -66,6 +67,7 @@ app/js/viz.js             visualiser widgets + stepper scripts (STEPS)
 app/js/questions1.js      basics + scope questions   (also PRELUDES: shared helper code)
 app/js/questions2.js      lazy + macros questions
 app/js/questions3.js      structs + interpreter + typing questions (contains the full MUPL interpreter prelude)
+app/js/questions4.js      balanced multiple-choice options (OPTS overrides) + the rewrite/improve/fix questions
 app/js/lessons.js         TOPICS (lesson content), CARDS (flashcards), EXAM_TIPS
 app/js/map.js             MAP (concept graph) and COMPARE (comparison tables)
 app/js/app.js             router, views, question engine, progress storage, service-worker registration
@@ -90,10 +92,12 @@ app/manifest.webmanifest  PWA manifest; app/icons/ = home-screen icons
           { ask: '(loop)', a: 'loops forever', nonterm: true }],   // predict; add independent:true to run parts separately
   options: [...], answer: 1,                                       // mcq
   starter, answer: 'model code', tests: [{ run: '(expr)', expect: 'printed value' }], template, // write
+  tag: 'rewrite', hint: 'shown by the Hint button',                 // write (optional)
+  require: [['regex', 'message']], forbid: [['regex', 'message']],  // write (optional style rules, e.g. must use cond / no set!)
   explain: 'shown after answering' }
 ```
 
-**After adding or editing questions, run `node tools/verify.js`** (needs Racket installed; `racket` is on PATH on this PC). It runs every predict/write question in real Racket and in `racket.js` and reports any mismatch. Last result: 87/87 checkable questions pass.
+**After adding or editing questions, run `node tools/verify.js`** (needs Racket installed; `racket` is on PATH on this PC). It runs every predict/write question in real Racket and in `racket.js` and reports any mismatch. It also checks that each model answer obeys its own require/forbid style rules. Last result: 111/111 checkable questions pass.
 
 Known, deliberate interpreter differences: numbers are JS floats (`(/ 1 2)` → `0.5`, huge integers lose precision); `eval` behaves like the DrRacket REPL (as in the slides), not a bare module; long-running programs are stopped after ~3M steps.
 
@@ -109,6 +113,8 @@ A PWA needs HTTPS hosting **once**. After that it runs from the phone's cache wi
 4. **Open it once from the Home Screen while online**, tap around a few pages, then test in **Airplane Mode**. It should all still work.
 5. Before leaving: open it again from the Home Screen so the cache is fresh. Progress is stored on the phone.
 
-Updating later: change files → **bump `VERSION` in `app/sw.js`** → upload again → open the app online twice (the first open fetches the update, the second uses it).
+The live copy is the GitHub repo `JumpyWizard11/Racket-Revision` (this folder), served at https://jumpywizard11.github.io/Racket-Revision/ (a root `index.html` forwards to `app/`).
+
+Updating later: change files → **bump `VERSION` in `app/sw.js`** → commit and push with GitHub Desktop → on the phone, open the app online, close it fully, and open it again (the first open fetches the update, the second uses it).
 
 Local preview on the PC: `python tools/serve.py` → http://localhost:8730 (the service worker is disabled on localhost so edits show immediately).

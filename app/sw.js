@@ -1,9 +1,9 @@
 // Service worker: stores every file of the app on the phone so it works with no signal.
 // IMPORTANT: when you change any app file, bump VERSION so phones download the new copy.
-const VERSION = 'racket-rev-v1';
+const VERSION = 'racket-rev-v2';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
-  './js/racket.js', './js/viz.js', './js/questions1.js', './js/questions2.js', './js/questions3.js',
+  './js/racket.js', './js/viz.js', './js/questions1.js', './js/questions2.js', './js/questions3.js', './js/questions4.js',
   './js/lessons.js', './js/map.js', './js/app.js',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
 ];
