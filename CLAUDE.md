@@ -103,6 +103,68 @@ Known, deliberate interpreter differences: numbers are JS floats (`(/ 1 2)` → 
 
 ---
 
+## Design choices (blueprint for a similar app, e.g. a Ruby version)
+
+This app is meant to be reused as a template for revising another language. Nothing below is Racket-specific unless it says so. To make a version for another language, keep the structure and swap the content and the interpreter.
+
+### Who it's for, and the constraints that drove everything
+
+- **The learner:** knows the material only loosely, struggles most with exam questions that show unlabelled "bad code" and ask what it does, whether it fails, or how to fix or rewrite it. They need to *see* what happens and how ideas connect, not just read definitions.
+- **The exam:** closed book, no cheat sheet, short answers (max ~4 lines of code). So the app trains recall and reading code on paper, not looking things up.
+- **The device:** an iPhone, used **offline** (camping). So: no server, no accounts, no CDN, no web fonts, no build step, everything cached by a service worker.
+- **Source of truth:** the lecture slides define the scope. The old exams define the *style* of questions. Anything in the old exams but not in the slides (here: Racket OOP, subtyping, Ruby) is left out on purpose.
+
+### Content structure
+
+- **One topic per slide deck, in lecture order**, each split into short sections (about 5–9 per topic). Each section is one idea, so it can be read in a couple of minutes and marked "understood".
+- **Every section mixes four things:** a short explanation, code the learner can run and edit, a visualiser where the idea is about *what happens when*, and 1–2 inline "check yourself" questions from the bank. Reading alone is never the end of a section.
+- **Callout types with fixed meanings:** 🔑 key idea, 🔗 connection to another concept (links into the concept map), ⚠️ exam trap. Keep the set small so they stay meaningful.
+- **An "exam skill" section in topics where a technique matters** (e.g. "reading unlabelled code", "add a case to the interpreter"): a numbered routine to follow on paper.
+- **Show connections, don't just state them:** a concept map (nodes = concepts, edges = one-sentence explanations of the relationship), plus side-by-side comparison tables for things students confuse (e.g. let vs let* vs letrec, function vs macro, thunk vs promise vs memoization).
+- **Flashcards** for definitions that must be recalled word-perfect, and an **Exam tips** page with checklists.
+
+### Questions: types and rules
+
+- **Four types:** `predict` (type what the code evaluates to, part by part, including `error` or `loops forever`), `mcq`, `write` (write or fix code, then run automatic tests), `explain` (write an answer, reveal a model answer, self-mark).
+- **Rewrite / improve / fix questions get their own tag and practice mode**, because they are the hardest exam style. Each one shows the bad code, asks for a rewrite, and checks the result with tests plus optional **style rules** (`require` / `forbid` regexes such as "must use cond", "no set!", "recursive call must be last"). Where the point is efficiency or tail recursion, a test is chosen so a bad version actually fails (a huge input, or one that takes exponential time). Each has a **Hint** button before the model answer.
+- **Multiple-choice options must not give the answer away.** All options have similar length and level of detail, each wrong option is a believable misconception, and the app **shuffles option order every time**. Explanations never refer to option letters. (The first version failed this: the correct answer was usually the longest and usually option B.)
+- **Questions from past exams are tagged with their source** (e.g. "Wi23 final Q2") and have their own practice mode.
+- **Every answer is machine-checked against the real language** (`tools/verify.js` runs real Racket). A revision app with wrong answers does more harm than none, so no question ships unverified.
+- **Lenient answer matching** for typed answers (ignore spacing, an optional leading quote, iPhone smart quotes), plus an "I was actually right" button for formatting mismatches.
+
+### Practice and progress
+
+- Modes: **Smart review** (past mistakes first, then unseen, then the correct answers seen longest ago: a cheap form of spaced repetition), rewrite & improve, exam mix (random 15), past-exam only, mistakes only, new only, browse all. Topic filter chips apply to every mode.
+- Progress (answers, understood sections, known flashcards, code drafts) lives in `localStorage` on the device, behind a wrapper that falls back to memory if storage is blocked.
+
+### The in-browser interpreter (the part to replace for another language)
+
+- Running real code on the phone is what makes most features work: runnable lesson code, "▶ Run it" on predict questions, tests for write questions, the playground, and the stream explorer / macro expander.
+- Requirements it was built to: **the same printed output and error messages as the real language** (students learn to read real errors); run a file the way the real tool does (here: Racket module semantics); a step limit and stack-overflow catch so infinite loops become a friendly message instead of freezing the phone; normalise iPhone smart quotes.
+- Keep a short documented list of known differences from the real language, and keep the verification script checking the interpreter against the real one.
+- **For Ruby:** this would need a small Ruby-subset interpreter in JavaScript built to the same requirements (or an existing one that is small enough to bundle offline), covering only the features in the Ruby slides. Verification would run real `ruby` on the PC instead of `racket`.
+
+### Visualisers
+
+- **Built for the ideas students get wrong, not for decoration.** Each one answers "what happens, step by step?". The most useful pattern is the **stepper**: code with the current line highlighted, a one-sentence note, and a diagram of the program's state (here: environment frames, where each closure is colour-matched to the frame it points to and changed bindings flash).
+- **Show broken versions next to correct ones** (wrong streams, naive vs hygienic macro expansion, an interpreter with and without type checks). Seeing the failure teaches the rule.
+- **Drive visualisers with the real interpreter where possible**, so what students see matches what really runs. Hand-written step scripts are fine for short, fixed walkthroughs.
+- For a Ruby version, the same pattern would fit things like method lookup through classes and mixins, blocks/closures and what they capture, `self`, and duck typing vs static checks.
+
+### Phone UI
+
+- Phone-first, max width ~760px, bottom tab bar (Learn · Practice · Connect · Code · Cards), safe-area padding for the notch, light and dark mode from the system setting.
+- Inputs use 16px text so iOS doesn't zoom in, with autocorrect, autocapitalise and spellcheck turned off on code fields. The code editor has a key bar for brackets and common keywords, since they are slow to type on a phone keyboard.
+- Lesson sections are collapsed accordions that build their widgets only when opened, so pages stay fast.
+
+### Tech and deployment
+
+- Plain HTML/CSS/JS with no framework and no build step: easy to edit, nothing to install, works from any static host. Each content type is its own data file (lessons, questions, map), separate from the code that renders it.
+- Service worker: cache-first with a background refresh, a version constant that must be bumped on every change, disabled on localhost so edits appear immediately while developing.
+- Hosted on GitHub Pages (public repo). The learner opens it once online, adds it to the Home Screen, and from then on it works offline.
+
+---
+
 ## Putting it on the iPhone (offline)
 
 A PWA needs HTTPS hosting **once**. After that it runs from the phone's cache with no signal.
